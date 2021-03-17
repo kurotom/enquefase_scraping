@@ -4,7 +4,7 @@ Pequeña aplicacion que contiene todo lo necesario para obtener los datos desde 
 Sistemas Linux/Windows x64.
 
 
-## Usa:
+## Utiliza:
 - Python 3
 - Selenium
 - Sqlite
@@ -12,3 +12,8 @@ Sistemas Linux/Windows x64.
 
 ### Requisitos:
 - Conexión a Internet.
+
+
+## Uso:
+- `python enquefase_cli.py`
+- `python enquefase_tk.py`
