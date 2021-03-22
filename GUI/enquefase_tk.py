@@ -14,76 +14,95 @@ import sys
 
 def get_event(*args):
     """Obtiene elemento desde el evento de seleccion desde listbox."""
-    seleccion = lista_comunas.selection_get()
-    return seleccion
+    try:
+        seleccion = lista_comunas.selection_get()
+        consulta_boton['state'] = 'normal'
+        return seleccion
+    except:
+        pass
 
 
 def consulta_fase():
     """Scraping en pagina web, buscando la comuna consultada."""
-
     nombre_city = get_event()
+    if nombre_city is None:
+        messagebox.showerror(title="Error selección", message="Seleccione una ciudad")
+    else:
+        opciones_settings = Options()
+        opciones_settings.headless = True
 
-    opciones_settings = Options()
-    opciones_settings.headless = True
+        url = "https://www.enquefase.cl/"
 
-    url = "https://www.enquefase.cl/"
+        ruta_exec = ""
+        plataforma = sys.platform
+        if plataforma == "linux":
+            ruta_exec = "geckodriver/geckodriver"
+        elif plataforma == "win32":
+            ruta_exec = "geckodriver/geckodriver.exe"
 
-    ruta_exec = ""
-    plataforma = sys.platform
-    if plataforma == "linux":
-        ruta_exec = "geckodriver/geckodriver"
-    elif plataforma == "win32":
-        ruta_exec = "geckodriver/geckodriver.exe"
+        driver = webdriver.Firefox(options=opciones_settings, executable_path=ruta_exec)
+        driver.get(url)
 
-    driver = webdriver.Firefox(options=opciones_settings, executable_path=ruta_exec)
-    driver.get(url)
+        buscador = driver.find_element_by_xpath(
+            "/html/body/div[3]/div[4]/div/div[2]/div[1]/div/div/div/span/span[1]/span/span[2]/b"
+        )
+        buscador.click()
 
-    buscador = driver.find_element_by_xpath(
-        "/html/body/div[3]/div[4]/div/div[2]/div[1]/div/div/div/span/span[1]/span/span[2]/b"
-    )
-    buscador.click()
+        barra_buscar = buscador.find_element_by_xpath("/html/body/span/span/span[1]/input")
+        barra_buscar.send_keys(nombre_city)
+        sleep(1)
+        barra_buscar.send_keys(Keys.ENTER)
+        sleep(1)
 
-    barra_buscar = buscador.find_element_by_xpath("/html/body/span/span/span[1]/input")
-    barra_buscar.send_keys(nombre_city)
-    sleep(1)
-    barra_buscar.send_keys(Keys.ENTER)
-    sleep(1)
+        WebDriverWait(driver, 20).until(
+            expected_conditions.visibility_of_element_located(
+                (By.XPATH, "/html/body/div[3]/div[4]/div/div[2]/div[1]/div/div/div"))
+        )
 
-    WebDriverWait(driver, 20).until(
-        expected_conditions.visibility_of_element_located(
-            (By.XPATH, "/html/body/div[3]/div[4]/div/div[2]/div[1]/div/div/div"))
-    )
+        items_obtenidos = driver.find_elements_by_xpath("/html/body/div[3]/div[4]/div/div[2]/div[1]/div/div/div")
 
-    items_obtenidos = driver.find_elements_by_xpath("/html/body/div[3]/div[4]/div/div[2]/div[1]/div/div/div")
+        texto = ""
+        for item in items_obtenidos:
+            texto += item.text
 
-    texto = ""
-    for item in items_obtenidos:
-        texto += item.text
+        driver.close()
 
-    driver.close()
-
-    resultado_txt['state'] = "normal"
-    resultado_txt.delete("1.0", resultado_txt.index('end'))
-    resultado_txt.insert(INSERT, texto)
-    resultado_txt['state'] = "disabled"
+        resultado_txt['state'] = "normal"
+        resultado_txt.delete("1.0", resultado_txt.index('end'))
+        resultado_txt.insert(INSERT, texto)
+        resultado_txt['state'] = "disabled"
 
 
 def busca_comuna():
     """Busca comuna correcta, en DB local."""
     comuna = entrada_ciudad.get()
-    conexion = sqlite3.connect("db_comunas/comunas_db")
-    ejecutor = conexion.cursor()
-    resultados = ejecutor.execute('SELECT nombre from comuna_chile WHERE {} LIKE "%{}%"'.format("nombre", comuna))
-    datos = resultados.fetchall()
-    if len(datos) == 0:
-        messagebox.showerror(title="Comuna no encontrada", message="No existe la comuna\nRevise la escritura.")
+    lista_comunas['state'] = 'normal'
+    if comuna:
+        conexion = sqlite3.connect("db_comunas/comunas_db")
+        ejecutor = conexion.cursor()
+        resultados = ejecutor.execute('SELECT nombre from comuna_chile WHERE {} LIKE "%{}%"'.format("nombre", comuna))
+        datos = resultados.fetchall()
+        if len(datos) == 0:
+            messagebox.showerror(title="Comuna no encontrada", message="No existe la comuna\nRevise la escritura.")
+        else:
+            ejecutor.close()
+            xi = 0
+            lista_comunas.delete(0, END)
+            for item in datos:
+                lista_comunas.insert(xi, item[0])
+                xi += 1
     else:
-        ejecutor.close()
-        xi = 0
-        lista_comunas.delete(0, END)
-        for item in datos:
-            lista_comunas.insert(xi, item[0])
-            xi += 1
+        messagebox.showerror(title="Error", message="Ingrese datos!")
+
+
+def about():
+    bs = Tk()
+    bs.title("About")
+    fr = Frame(bs)
+    label = Label(fr, text="Kurotom\nhttps://github.com/kurotom")
+    fr.grid(pady=10, padx=10)
+    label.grid()
+    bs.mainloop()
 
 
 base = Tk()
@@ -99,13 +118,17 @@ entrada_ciudad = Entry(frame1, textvariable=texto_var, show=None, justify="cente
 boton_buscar = Button(frame1, text="Buscar", command=busca_comuna)
 
 lista_comunas = Listbox(frame2, selectmode="single", width=30, height=6)
+lista_comunas['state'] = 'disabled'
 
 consulta_boton = Button(frame3, text="Consultar", command=consulta_fase)
+consulta_boton['state'] = 'disabled'
 
 resultado_txt = Text(frame4, wrap="word", width=30, height=4)
 resultado_txt['state'] = 'disabled'
 
 boton_salir = Button(frame4, text="Salir", command=quit, width=5)
+
+about_button = Button(frame4, text="About", width=3, command=about)
 
 frame1.grid(pady=(5, 1))
 frame2.grid()
@@ -118,8 +141,9 @@ lista_comunas.grid(sticky="WE")
 lista_comunas.bind('<<ListboxSelect>>', get_event)
 consulta_boton.grid()
 
-resultado_txt.grid(pady=(0, 5))
+resultado_txt.grid(pady=(0, 5), columnspan=3)
 
-boton_salir.grid()
+boton_salir.grid(column=2, row=1)
+about_button.grid(column=0, row=1)
 
 base.mainloop()
